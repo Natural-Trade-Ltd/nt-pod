@@ -21,7 +21,11 @@ main{padding:14px 16px;max-width:560px;margin:auto}
 .b1{background:var(--azul)}.b2{background:var(--ok)}.b3{background:var(--crit)}
 label{display:block;margin:12px 0 4px;font-weight:600}
 input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
-.thumbs img{width:31%;margin:1%;border-radius:6px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.thumbs div{position:relative;width:31%}.thumbs img{width:100%;border-radius:6px;display:block}
+.thumbs button{position:absolute;top:2px;right:2px;border:0;border-radius:50%;width:26px;height:26px;background:rgba(0,0,0,.6);color:#fff;font-size:15px}
+.fbtn{display:inline-block;margin:6px 6px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:600;cursor:pointer}
+.fbtn input{display:none}
 .msg{padding:12px;border-radius:8px;margin:10px 0}
 .okm{background:#e3f0e6;color:var(--ok)}.errm{background:#f6e3e1;color:var(--crit)}.infom{background:#eef2f6;color:var(--azul)}
 .muted{color:var(--muted);font-size:13px}
@@ -63,16 +67,19 @@ function inicio(msg){
 }
 function forma(acc){gps();
   const tit={llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
-  const foto={llegada:'Foto de la unidad en la planta del cliente',entrega:'Foto de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente (hasta 6)'}[acc];
+  const foto={llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
   $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
    +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
-   +'<label>'+foto+'</label><input type="file" id="ft" accept="image/*" capture="environment" '+(acc==='incidente'?'multiple':'')+'><div class="thumbs" id="th"></div>'
+   +'<label>'+foto+' (hasta 10)</label><label class="fbtn">📷 Tomar foto<input type="file" id="fc" accept="image/*" capture="environment"></label><label class="fbtn">🖼 Galería<input type="file" id="fg" accept="image/*" multiple></label><div class="thumbs" id="th"></div>'
    +'<label>Tu nombre</label><input id="nom" autocomplete="name">'
    +'<label>'+(acc==='entrega'?'Quién recibió / comentarios':'Comentarios')+' (opcional)</label><textarea id="nt" rows="3"></textarea>'
    +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':acc==='entrega'?'b2':'b1')+'" id="go">Enviar</button></div>';
   let fotos=[];
   $('#bk').onclick=()=>inicio();
-  $('#ft').onchange=async e=>{fotos=[];$('#th').innerHTML='';for(const f of [...e.target.files].slice(0,6)){try{const r=await reducir(f);fotos.push(r);$('#th').insertAdjacentHTML('beforeend','<img src="'+r.url+'">');}catch(er){}}};
+  const pintarFotos=()=>{$('#th').innerHTML=fotos.map((f,i)=>'<div><img src="'+f.url+'"><button data-i="'+i+'" aria-label="Quitar">×</button></div>').join('');
+    $('#th').querySelectorAll('button').forEach(b=>b.onclick=()=>{fotos.splice(+b.dataset.i,1);pintarFotos();});};
+  const agregar=async e=>{for(const f of [...e.target.files]){if(fotos.length>=10)break;try{fotos.push(await reducir(f));}catch(er){}}e.target.value='';pintarFotos();};
+  $('#fc').onchange=agregar;$('#fg').onchange=agregar;
   $('#go').onclick=async()=>{const m=$('#m');
     if(acc!=='incidente'&&!fotos.length){m.innerHTML='<div class="msg errm">Toma la foto antes de enviar.</div>';return;}
     $('#go').disabled=true;m.innerHTML='<div class="msg infom">Enviando…</div>';

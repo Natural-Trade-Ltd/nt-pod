@@ -26,7 +26,7 @@ async function registrar(b: Record<string, unknown>) {
   if (c.cerrado) return json({ error: 'Este camión ya está cerrado. Si necesitas reportar algo, llama a logística.' }, 409);
   const accion = String(b.accion || '');
   if (!['llegada', 'entrega', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
-  const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 6) as { base64?: string; tipo?: string }[];
+  const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];
   for (let i = 0; i < fotos.length; i++) {
