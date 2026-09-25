@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Entrega · Global Forest</title>
+<style>
+:root{--bg:#f4f1ea;--card:#fff;--ink:#1f2a24;--muted:#6b726c;--line:#e2ddd2;--ok:#2f6b3f;--warn:#b07a12;--crit:#a3342c;--azul:#3d6b8e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:#24362b;color:#fff;padding:14px 16px}
+header b{font-size:18px}
+header div{opacity:.8;font-size:13px}
+main{padding:14px 16px;max-width:560px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.v{margin-bottom:8px}
+.big{display:block;width:100%;border:0;border-radius:12px;padding:18px;margin:10px 0;font-size:18px;font-weight:600;color:#fff;cursor:pointer}
+.big[disabled]{opacity:.6}
+.b1{background:var(--azul)}.b2{background:var(--ok)}.b3{background:var(--crit)}
+label{display:block;margin:12px 0 4px;font-weight:600}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.thumbs img{width:31%;margin:1%;border-radius:6px}
+.msg{padding:12px;border-radius:8px;margin:10px 0}
+.okm{background:#e3f0e6;color:var(--ok)}.errm{background:#f6e3e1;color:var(--crit)}.infom{background:#eef2f6;color:var(--azul)}
+.muted{color:var(--muted);font-size:13px}
+.volver{background:none;border:0;color:var(--azul);font-size:15px;padding:8px 0;cursor:pointer}
+</style>
+</head>
+<body>
+<header><b>Global Forest · Entrega</b><div id="hfolio">&nbsp;</div></header>
+<main id="app"><div class="msg infom">Cargando…</div></main>
+<script>
+// Portal del transportista (POD por QR de la Carta Porte). Datos en Supabase (pod-api); NetSuite los sincroniza.
+const API='https://cytopyytymxjwvfhosvg.supabase.co/functions/v1/pod-api';
+const T=new URLSearchParams(location.search).get('t')||'';
+const TIPOS=['Material mojado','Lona rota','Ponchadura / falla mecánica','Accidente','Daño a mercancía','Faltante','Rechazo / no recibida','Retraso en entrega','Estadía','Otro'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let D=null,GPS={};
+function gps(){if(!navigator.geolocation){const g=$('#gps');if(g)g.textContent='⚠ Este celular no comparte ubicación';return;}
+  navigator.geolocation.getCurrentPosition(p=>{GPS={lat:p.coords.latitude,lng:p.coords.longitude,prec:p.coords.accuracy};const g=$('#gps');if(g)g.textContent='📍 Ubicación lista (±'+Math.round(p.coords.accuracy)+' m)';},
+    ()=>{const g=$('#gps');if(g)g.textContent='⚠ Sin ubicación: permite el GPS en tu navegador';},{enableHighAccuracy:true,timeout:15000});}
+function reducir(f){return new Promise((ok,ko)=>{const img=new Image();const rd=new FileReader();
+  rd.onload=()=>{img.onload=()=>{const m=1600;let w=img.width,h=img.height;if(Math.max(w,h)>m){const k=m/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k);}
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);
+    ok({tipo:'image/jpeg',base64:cv.toDataURL('image/jpeg',0.8).split(',')[1],url:cv.toDataURL('image/jpeg',0.4)});};img.onerror=ko;img.src=rd.result;};
+  rd.onerror=ko;rd.readAsDataURL(f);});}
+function inicio(msg){
+  $('#hfolio').textContent=D.folio||'';
+  $('#app').innerHTML=(msg?'<div class="msg okm">'+esc(msg)+'</div>':'')
+   +'<div class="card"><div class="k">Cliente</div><div class="v"><b>'+esc(D.cliente)+'</b></div>'
+   +'<div class="k">Entregar en</div><div class="v">'+esc(D.destino||'—')+'</div>'
+   +'<div class="k">Carga</div><div class="v">'+esc(D.carga||'—')+'</div>'
+   +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
+   +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
+   +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':
+     '<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>'
+    +'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>'
+    +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>');
+  if(!D.cerrado){$('#a1').onclick=()=>forma('llegada');$('#a2').onclick=()=>forma('entrega');$('#a3').onclick=()=>forma('incidente');}
+}
+function forma(acc){gps();
+  const tit={llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
+  const foto={llegada:'Foto de la unidad en la planta del cliente',entrega:'Foto de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente (hasta 6)'}[acc];
+  $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
+   +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
+   +'<label>'+foto+'</label><input type="file" id="ft" accept="image/*" capture="environment" '+(acc==='incidente'?'multiple':'')+'><div class="thumbs" id="th"></div>'
+   +'<label>Tu nombre</label><input id="nom" autocomplete="name">'
+   +'<label>'+(acc==='entrega'?'Quién recibió / comentarios':'Comentarios')+' (opcional)</label><textarea id="nt" rows="3"></textarea>'
+   +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':acc==='entrega'?'b2':'b1')+'" id="go">Enviar</button></div>';
+  let fotos=[];
+  $('#bk').onclick=()=>inicio();
+  $('#ft').onchange=async e=>{fotos=[];$('#th').innerHTML='';for(const f of [...e.target.files].slice(0,6)){try{const r=await reducir(f);fotos.push(r);$('#th').insertAdjacentHTML('beforeend','<img src="'+r.url+'">');}catch(er){}}};
+  $('#go').onclick=async()=>{const m=$('#m');
+    if(acc!=='incidente'&&!fotos.length){m.innerHTML='<div class="msg errm">Toma la foto antes de enviar.</div>';return;}
+    $('#go').disabled=true;m.innerHTML='<div class="msg infom">Enviando…</div>';
+    try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,accion:acc,fotos:fotos.map(f=>({tipo:f.tipo,base64:f.base64})),
+        lat:GPS.lat,lng:GPS.lng,prec:GPS.prec,nombre:$('#nom').value,nota:$('#nt').value,tipo:acc==='incidente'?$('#tipo').value:'',hora_cel:new Date().toLocaleString('es-MX')})});
+      const j=await r.json();if(j.error)throw new Error(j.error);
+      if(acc==='llegada')D.status='En destino';if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
+      inicio(j.msg);}
+    catch(er){$('#go').disabled=false;m.innerHTML='<div class="msg errm">'+esc(er.message||'No se pudo enviar. Revisa tu señal e intenta de nuevo.')+'</div>';}};
+}
+(async()=>{
+  if(!T){$('#app').innerHTML='<div class="msg errm">Falta el código. Escanea el QR de la Carta Porte.</div>';return;}
+  try{const r=await fetch(API+'?t='+encodeURIComponent(T));const j=await r.json();if(j.error)throw new Error(j.error);D=j.camion;inicio();}
+  catch(e){$('#app').innerHTML='<div class="msg errm">'+esc(e.message||'No se pudo abrir la entrega.')+'</div><p class="muted">Escanea de nuevo el QR de la Carta Porte o llama a logística.</p>';}
+})();
+</script>
+</body>
+</html>
