@@ -21,11 +21,17 @@ function bytesToB64(u: Uint8Array) { let s = ''; const CH = 0x8000; for (let i =
 
 async function registrar(b: Record<string, unknown>) {
   if (!tokenOk(b.t)) return json({ error: 'Código no válido. Escanea de nuevo el QR de la Carta Porte.' }, 400);
-  const { data: c } = await db.from('pod_camion').select('token, entrega_id, status, cerrado').eq('token', b.t).maybeSingle();
+  const { data: c } = await db.from('pod_camion').select('token, entrega_id, status, cerrado, pod, llegada').eq('token', b.t).maybeSingle();
   if (!c) return json({ error: 'Código no válido o vencido.' }, 404);
   if (c.cerrado) return json({ error: 'Este camión ya está cerrado. Si necesitas reportar algo, llama a logística.' }, 409);
   const accion = String(b.accion || '');
   if (!['salida', 'llegada', 'entrega', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
+  // no repetir pasos ya registrados (Jorge 27-sep): doble clic o link viejo
+  const RK = ['Borrador', 'Asignada', 'Confirmada', 'En tránsito', 'En destino', 'Entregada', 'POD recibido', 'Facturada', 'Cerrada'];
+  const rk = RK.indexOf(String(c.status || ''));
+  if (accion === 'salida' && rk >= 3) return json({ error: 'La salida ya estaba registrada.' }, 409);
+  if (accion === 'llegada' && (rk >= 4 || c.llegada)) return json({ error: 'La llegada ya estaba registrada.' }, 409);
+  if (accion === 'entrega' && (c.pod || rk >= 5)) return json({ error: 'La entrega ya estaba registrada con su POD.' }, 409);
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];

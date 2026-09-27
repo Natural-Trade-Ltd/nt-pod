@@ -59,12 +59,17 @@ function inicio(msg){
    +'<div class="k">Carga</div><div class="v">'+esc(D.carga||'—')+'</div>'
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
-   +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':
-     (['Borrador','Asignada','Confirmada',''].includes(D.status||'')?'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>':'')
-    +'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>'
-    +'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>'
-    +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>');
-  if(!D.cerrado){if($('#a0'))$('#a0').onclick=()=>forma('salida');$('#a1').onclick=()=>forma('llegada');$('#a2').onclick=()=>forma('entrega');$('#a3').onclick=()=>forma('incidente');}
+   +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':pasos());
+  if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
+}
+// Cada botón desaparece cuando su paso ya quedó registrado (Jorge 27-sep); en su lugar sale una palomita
+const RK=['Borrador','Asignada','Confirmada','En tránsito','En destino','Entregada','POD recibido','Facturada','Cerrada'];
+function pasos(){const rk=RK.indexOf(D.status||'');const ok=t=>'<div class="msg okm">✔ '+t+'</div>';
+  const salio=rk>=3,llego=rk>=4||!!D.llegada,entrego=!!D.pod||rk>=5;
+  return (salio?ok('Salida registrada'):'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>')
+   +(llego?ok('Llegada registrada'):'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>')
+   +(entrego?ok('Entrega registrada con POD. ¡Gracias!'):'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>')
+   +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>';
 }
 function forma(acc){gps();
   const tit={salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
@@ -87,7 +92,7 @@ function forma(acc){gps();
     try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,accion:acc,fotos:fotos.map(f=>({tipo:f.tipo,base64:f.base64})),
         lat:GPS.lat,lng:GPS.lng,prec:GPS.prec,nombre:$('#nom').value,nota:$('#nt').value,tipo:acc==='incidente'?$('#tipo').value:'',hora_cel:new Date().toLocaleString('es-MX')})});
       const j=await r.json();if(j.error)throw new Error(j.error);
-      if(acc==='salida')D.status='En tránsito';if(acc==='llegada')D.status='En destino';if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
+      if(acc==='salida')D.status='En tránsito';if(acc==='llegada'){D.status='En destino';D.llegada=new Date().toISOString();}if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
       inicio(j.msg);}
     catch(er){$('#go').disabled=false;m.innerHTML='<div class="msg errm">'+esc(er.message||'No se pudo enviar. Revisa tu señal e intenta de nuevo.')+'</div>';}};
 }
