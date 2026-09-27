@@ -18,7 +18,7 @@ main{padding:14px 16px;max-width:560px;margin:auto}
 .v{margin-bottom:8px}
 .big{display:block;width:100%;border:0;border-radius:12px;padding:18px;margin:10px 0;font-size:18px;font-weight:600;color:#fff;cursor:pointer}
 .big[disabled]{opacity:.6}
-.b1{background:var(--azul)}.b2{background:var(--ok)}.b3{background:var(--crit)}
+.b0{background:#6b4f2a}.b1{background:var(--azul)}.b2{background:var(--ok)}.b3{background:var(--crit)}
 label{display:block;margin:12px 0 4px;font-weight:600}
 input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -60,20 +60,21 @@ function inicio(msg){
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
    +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':
-     '<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>'
+     (['Borrador','Asignada','Confirmada',''].includes(D.status||'')?'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>':'')
+    +'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>'
     +'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>'
     +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>');
-  if(!D.cerrado){$('#a1').onclick=()=>forma('llegada');$('#a2').onclick=()=>forma('entrega');$('#a3').onclick=()=>forma('incidente');}
+  if(!D.cerrado){if($('#a0'))$('#a0').onclick=()=>forma('salida');$('#a1').onclick=()=>forma('llegada');$('#a2').onclick=()=>forma('entrega');$('#a3').onclick=()=>forma('incidente');}
 }
 function forma(acc){gps();
-  const tit={llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
-  const foto={llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
+  const tit={salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
+  const foto={salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
   $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
    +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
    +'<label>'+foto+' (hasta 10)</label><label class="fbtn">📷 Tomar foto<input type="file" id="fc" accept="image/*" capture="environment"></label><label class="fbtn">🖼 Galería<input type="file" id="fg" accept="image/*" multiple></label><div class="thumbs" id="th"></div>'
    +'<label>Tu nombre</label><input id="nom" autocomplete="name">'
    +'<label>'+(acc==='entrega'?'Quién recibió / comentarios':'Comentarios')+' (opcional)</label><textarea id="nt" rows="3"></textarea>'
-   +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':acc==='entrega'?'b2':'b1')+'" id="go">Enviar</button></div>';
+   +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':acc==='entrega'?'b2':acc==='salida'?'b0':'b1')+'" id="go">Enviar</button></div>';
   let fotos=[];
   $('#bk').onclick=()=>inicio();
   const pintarFotos=()=>{$('#th').innerHTML=fotos.map((f,i)=>'<div><img src="'+f.url+'"><button data-i="'+i+'" aria-label="Quitar">×</button></div>').join('');
@@ -86,7 +87,7 @@ function forma(acc){gps();
     try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,accion:acc,fotos:fotos.map(f=>({tipo:f.tipo,base64:f.base64})),
         lat:GPS.lat,lng:GPS.lng,prec:GPS.prec,nombre:$('#nom').value,nota:$('#nt').value,tipo:acc==='incidente'?$('#tipo').value:'',hora_cel:new Date().toLocaleString('es-MX')})});
       const j=await r.json();if(j.error)throw new Error(j.error);
-      if(acc==='llegada')D.status='En destino';if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
+      if(acc==='salida')D.status='En tránsito';if(acc==='llegada')D.status='En destino';if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
       inicio(j.msg);}
     catch(er){$('#go').disabled=false;m.innerHTML='<div class="msg errm">'+esc(er.message||'No se pudo enviar. Revisa tu señal e intenta de nuevo.')+'</div>';}};
 }

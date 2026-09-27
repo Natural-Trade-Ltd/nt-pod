@@ -2,7 +2,7 @@
 // Público (lo llama la página de GitHub Pages con el token del QR):
 //   GET  ?t=<token>                               → datos del camión para la página (sin precios)
 //   POST {t, accion, fotos[], lat, lng, prec, nombre, nota, tipo, hora_cel}
-//        accion = llegada | entrega | incidente    → guarda fotos (bucket privado «pod») y el evento
+//        accion = salida | llegada | entrega | incidente    → guarda fotos (bucket privado «pod») y el evento
 // Privado (lo llama NetSuite con el header x-pod-secret = POD_SECRET):
 //   POST {op:'sync', camiones:[…]}                → alta/actualización de camiones (token, folio, cliente…)
 //   POST {op:'pendientes', max}                   → eventos sin procesar con sus fotos en base64
@@ -25,7 +25,7 @@ async function registrar(b: Record<string, unknown>) {
   if (!c) return json({ error: 'Código no válido o vencido.' }, 404);
   if (c.cerrado) return json({ error: 'Este camión ya está cerrado. Si necesitas reportar algo, llama a logística.' }, 409);
   const accion = String(b.accion || '');
-  if (!['llegada', 'entrega', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
+  if (!['salida', 'llegada', 'entrega', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];
@@ -44,9 +44,10 @@ async function registrar(b: Record<string, unknown>) {
     hora_cel: String(b.hora_cel || '').slice(0, 60) || null, fotos: rutas });
   if (e2) return json({ error: 'No se pudo registrar: ' + e2.message }, 500);
   // vista inmediata para el operador (NetSuite confirma al sincronizar)
+  if (accion === 'salida') await db.from('pod_camion').update({ status: 'En tránsito', updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'llegada') await db.from('pod_camion').update({ status: 'En destino', llegada: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'entrega') await db.from('pod_camion').update({ status: 'POD recibido', pod: true, updated_at: new Date().toISOString() }).eq('token', c.token);
-  return json({ ok: true, msg: accion === 'llegada' ? 'Llegada registrada. ¡Gracias!' : accion === 'entrega' ? 'Entrega registrada con POD. ¡Gracias!' : 'Incidente registrado. Logística será avisada.' });
+  return json({ ok: true, msg: accion === 'salida' ? 'Salida registrada. ¡Buen viaje!' : accion === 'llegada' ? 'Llegada registrada. ¡Gracias!' : accion === 'entrega' ? 'Entrega registrada con POD. ¡Gracias!' : 'Incidente registrado. Logística será avisada.' });
 }
 
 async function privado(b: Record<string, unknown>) {
