@@ -60,7 +60,7 @@ function inicio(msg){
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
    +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':pasos());
-  if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
+  if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a4','pod_extra'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
 }
 // Cada botón desaparece cuando su paso ya quedó registrado (Jorge 27-sep); en su lugar sale una palomita
 const RK=['Borrador','Asignada','Confirmada','En tránsito','En destino','Entregada','POD recibido','Facturada','Cerrada'];
@@ -68,18 +68,19 @@ function pasos(){const rk=RK.indexOf(D.status||'');const ok=t=>'<div class="msg 
   const salio=rk>=3,llego=rk>=4||!!D.llegada,entrego=!!D.pod||rk>=5;
   return (salio?ok('Salida registrada'):'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>')
    +(llego?ok('Llegada registrada'):'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>')
-   +(entrego?ok('Entrega registrada con POD. ¡Gracias!'):'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>')
+   +(entrego?ok('Entrega registrada con POD. ¡Gracias!')+'<button class="big b2" id="a4" style="background:#fff;color:var(--ok);border:2px solid var(--ok)">📎 Agregar fotos a la entrega<br><span style="font-size:13px;font-weight:400">faltó una firma, una hoja o salió borrosa</span></button>':'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>')
    +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>';
 }
 function forma(acc){gps();
-  const tit={salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
-  const foto={salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
+  const tit={pod_extra:'Fotos adicionales de la entrega',salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
+  const foto={pod_extra:'Fotos que faltaron (firma, sello, hoja adicional)',salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
   $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
+   +(acc==='pod_extra'?'<label>¿Qué se agrega?</label><select id="tipo">'+['Faltaba una firma o sello','Hoja adicional de la Carta Porte','La foto anterior salió borrosa','Otro'].map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
    +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
    +'<label>'+foto+' (hasta 10)</label><label class="fbtn">📷 Tomar foto<input type="file" id="fc" accept="image/*" capture="environment"></label><label class="fbtn">🖼 Galería<input type="file" id="fg" accept="image/*" multiple></label><div class="thumbs" id="th"></div>'
    +'<label>Tu nombre</label><input id="nom" autocomplete="name">'
    +'<label>'+(acc==='entrega'?'Quién recibió / comentarios':'Comentarios')+' (opcional)</label><textarea id="nt" rows="3"></textarea>'
-   +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':acc==='entrega'?'b2':acc==='salida'?'b0':'b1')+'" id="go">Enviar</button></div>';
+   +'<div id="m"></div><button class="big '+(acc==='incidente'?'b3':(acc==='entrega'||acc==='pod_extra')?'b2':acc==='salida'?'b0':'b1')+'" id="go">Enviar</button></div>';
   let fotos=[];
   $('#bk').onclick=()=>inicio();
   const pintarFotos=()=>{$('#th').innerHTML=fotos.map((f,i)=>'<div><img src="'+f.url+'"><button data-i="'+i+'" aria-label="Quitar">×</button></div>').join('');
@@ -90,7 +91,7 @@ function forma(acc){gps();
     if(acc!=='incidente'&&!fotos.length){m.innerHTML='<div class="msg errm">Toma la foto antes de enviar.</div>';return;}
     $('#go').disabled=true;m.innerHTML='<div class="msg infom">Enviando…</div>';
     try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,accion:acc,fotos:fotos.map(f=>({tipo:f.tipo,base64:f.base64})),
-        lat:GPS.lat,lng:GPS.lng,prec:GPS.prec,nombre:$('#nom').value,nota:$('#nt').value,tipo:acc==='incidente'?$('#tipo').value:'',hora_cel:new Date().toLocaleString('es-MX')})});
+        lat:GPS.lat,lng:GPS.lng,prec:GPS.prec,nombre:$('#nom').value,nota:$('#nt').value,tipo:(acc==='incidente'||acc==='pod_extra')?$('#tipo').value:'',hora_cel:new Date().toLocaleString('es-MX')})});
       const j=await r.json();if(j.error)throw new Error(j.error);
       if(acc==='salida')D.status='En tránsito';if(acc==='llegada'){D.status='En destino';D.llegada=new Date().toISOString();}if(acc==='entrega'){D.pod=true;D.status='POD recibido';}
       inicio(j.msg);}

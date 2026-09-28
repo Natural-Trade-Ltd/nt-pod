@@ -25,13 +25,14 @@ async function registrar(b: Record<string, unknown>) {
   if (!c) return json({ error: 'Código no válido o vencido.' }, 404);
   if (c.cerrado) return json({ error: 'Este camión ya está cerrado. Si necesitas reportar algo, llama a logística.' }, 409);
   const accion = String(b.accion || '');
-  if (!['salida', 'llegada', 'entrega', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
+  if (!['salida', 'llegada', 'entrega', 'pod_extra', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
   // no repetir pasos ya registrados (Jorge 27-sep): doble clic o link viejo
   const RK = ['Borrador', 'Asignada', 'Confirmada', 'En tránsito', 'En destino', 'Entregada', 'POD recibido', 'Facturada', 'Cerrada'];
   const rk = RK.indexOf(String(c.status || ''));
   if (accion === 'salida' && rk >= 3) return json({ error: 'La salida ya estaba registrada.' }, 409);
   if (accion === 'llegada' && (rk >= 4 || c.llegada)) return json({ error: 'La llegada ya estaba registrada.' }, 409);
   if (accion === 'entrega' && (c.pod || rk >= 5)) return json({ error: 'La entrega ya estaba registrada con su POD.' }, 409);
+  if (accion === 'pod_extra' && !(c.pod || rk >= 5)) return json({ error: 'Primero registra la entrega con la foto de la Carta Porte.' }, 409);
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];
@@ -53,7 +54,7 @@ async function registrar(b: Record<string, unknown>) {
   if (accion === 'salida') await db.from('pod_camion').update({ status: 'En tránsito', updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'llegada') await db.from('pod_camion').update({ status: 'En destino', llegada: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'entrega') await db.from('pod_camion').update({ status: 'POD recibido', pod: true, updated_at: new Date().toISOString() }).eq('token', c.token);
-  return json({ ok: true, msg: accion === 'salida' ? 'Salida registrada. ¡Buen viaje!' : accion === 'llegada' ? 'Llegada registrada. ¡Gracias!' : accion === 'entrega' ? 'Entrega registrada con POD. ¡Gracias!' : 'Incidente registrado. Logística será avisada.' });
+  return json({ ok: true, msg: accion === 'pod_extra' ? 'Fotos agregadas a la entrega. ¡Gracias!' : accion === 'salida' ? 'Salida registrada. ¡Buen viaje!' : accion === 'llegada' ? 'Llegada registrada. ¡Gracias!' : accion === 'entrega' ? 'Entrega registrada con POD. ¡Gracias!' : 'Incidente registrado. Logística será avisada.' });
 }
 
 async function privado(b: Record<string, unknown>) {
