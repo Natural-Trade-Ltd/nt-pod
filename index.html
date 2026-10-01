@@ -73,7 +73,7 @@ function pasos(){const rk=RK.indexOf(D.status||'');const ok=t=>'<div class="msg 
 }
 function forma(acc){gps();
   const tit={pod_extra:'Fotos adicionales de la entrega',salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
-  const foto={pod_extra:'Fotos que faltaron (firma, sello, hoja adicional)',salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente',incidente:'Fotos del incidente'}[acc];
+  const foto={pod_extra:'Fotos que faltaron (firma, sello, hoja adicional)',salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente y, si el patio te lo dio, del reporte de salida del patio',incidente:'Fotos del incidente'}[acc];
   $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
    +(acc==='pod_extra'?'<label>¿Qué se agrega?</label><select id="tipo">'+['Faltaba una firma o sello','Hoja adicional de la Carta Porte','La foto anterior salió borrosa','Otro'].map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
    +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
