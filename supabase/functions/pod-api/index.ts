@@ -33,6 +33,8 @@ async function registrar(b: Record<string, unknown>) {
   if (accion === 'llegada' && (rk >= 4 || c.llegada)) return json({ error: 'La llegada ya estaba registrada.' }, 409);
   if (accion === 'entrega' && (c.pod || rk >= 5)) return json({ error: 'La entrega ya estaba registrada con su POD.' }, 409);
   if (accion === 'pod_extra' && !(c.pod || rk >= 5)) return json({ error: 'Primero registra la entrega con la foto de la Carta Porte.' }, 409);
+  // 6-oct: un incidente en un camión ya entregado casi siempre es el link de un viaje anterior → se rechaza con instrucciones
+  if (accion === 'incidente' && (c.pod || rk >= 5)) return json({ error: 'Este viaje ya se entregó con su POD. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva. Si el problema es de este viaje, llama a logística.' }, 409);
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];

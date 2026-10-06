@@ -52,7 +52,7 @@ function reducir(f){return new Promise((ok,ko)=>{const img=new Image();const rd=
     ok({tipo:'image/jpeg',base64:cv.toDataURL('image/jpeg',0.8).split(',')[1],url:cv.toDataURL('image/jpeg',0.4)});};img.onerror=ko;img.src=rd.result;};
   rd.onerror=ko;rd.readAsDataURL(f);});}
 function inicio(msg){
-  $('#hfolio').textContent=D.folio||'';
+  $('#hfolio').textContent=[D.folio,String(D.so||'').replace(/^(Orden de venta|Sales Order) #/,'')].filter(Boolean).join(' · ');
   $('#app').innerHTML=(msg?'<div class="msg okm">'+esc(msg)+'</div>':'')
    +'<div class="card"><div class="k">Cliente</div><div class="v"><b>'+esc(D.cliente)+'</b></div>'
    +'<div class="k">Entregar en</div><div class="v">'+esc(D.destino||'—')+'</div>'
@@ -60,6 +60,7 @@ function inicio(msg){
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
    +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':pasos());
+  if(!D.cerrado&&(D.pod||RK.indexOf(D.status||'')>=5))$('#app').insertAdjacentHTML('afterbegin','<div class="msg errm" style="font-size:17px"><b>⚠ Este viaje ya se entregó.</b><br>Si vas en un viaje nuevo, este link <b>no es el tuyo</b>: abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>');
   if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a4','pod_extra'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
 }
 // Cada botón desaparece cuando su paso ya quedó registrado (Jorge 27-sep); en su lugar sale una palomita
@@ -69,7 +70,7 @@ function pasos(){const rk=RK.indexOf(D.status||'');const ok=t=>'<div class="msg 
   return (salio?ok('Salida registrada'):'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>')
    +(llego?ok('Llegada registrada'):'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>')
    +(entrego?ok('Entrega registrada con POD. ¡Gracias!')+'<button class="big b2" id="a4" style="background:#fff;color:var(--ok);border:2px solid var(--ok)">📎 Agregar fotos a la entrega<br><span style="font-size:13px;font-weight:400">faltó una firma, una hoja o salió borrosa</span></button>':'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>')
-   +'<button class="big b3" id="a3">⚠ Reportar un incidente</button>';
+   +(entrego?'':'<button class="big b3" id="a3">⚠ Reportar un incidente</button>');
 }
 function forma(acc){gps();
   const tit={pod_extra:'Fotos adicionales de la entrega',salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
