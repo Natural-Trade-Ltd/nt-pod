@@ -14,17 +14,27 @@ const SECRET = Deno.env.get('POD_SECRET') || '';
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type, x-pod-secret', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
 const tokenOk = (t: unknown) => typeof t === 'string' && t.length >= 24 && /^[A-Za-z0-9-]+$/.test(t);
-const PUBLICO = 'folio, so, cliente, destino, origen, transportista, unidad, carga, status, pod, llegada, cerrado';
+const PUBLICO = 'folio, so, cliente, destino, origen, transportista, unidad, carga, status, pod, llegada, cerrado, pod_at';
+// 6-oct (Jorge): el link de un camión se cierra 3 días después de su POD (los choferes guardan links de viajes anteriores)
+const DIAS_CIERRE = 3;
+const vencido = (c: { pod?: boolean; pod_at?: string | null }) => !!c.pod && !!c.pod_at && Date.now() - Date.parse(c.pod_at) > DIAS_CIERRE * 86400000;
+const MSG_VIEJO = 'Este link es de un viaje que ya se entregó. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva. Si el problema es de este viaje, llama a logística.';
 
 function b64ToBytes(b64: string) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
 function bytesToB64(u: Uint8Array) { let s = ''; const CH = 0x8000; for (let i = 0; i < u.length; i += CH) s += String.fromCharCode(...u.subarray(i, i + CH)); return btoa(s); }
 
 async function registrar(b: Record<string, unknown>) {
   if (!tokenOk(b.t)) return json({ error: 'Código no válido. Escanea de nuevo el QR de la Carta Porte.' }, 400);
-  const { data: c } = await db.from('pod_camion').select('token, entrega_id, status, cerrado, pod, llegada').eq('token', b.t).maybeSingle();
+  const { data: c } = await db.from('pod_camion').select('token, entrega_id, folio, status, cerrado, pod, llegada, pod_at').eq('token', b.t).maybeSingle();
   if (!c) return json({ error: 'Código no válido o vencido.' }, 404);
-  if (c.cerrado) return json({ error: 'Este camión ya está cerrado. Si necesitas reportar algo, llama a logística.' }, 409);
   const accion = String(b.accion || '');
+  const rechazar = async (motivo: string, msg: string) => {
+    await db.from('pod_rechazo').insert({ token: c.token, entrega_id: c.entrega_id, folio: c.folio, accion, motivo, tipo: String(b.tipo || '').slice(0, 80) || null,
+      nombre: String(b.nombre || '').slice(0, 120) || null, nota: String(b.nota || '').slice(0, 2000) || null, hora_cel: String(b.hora_cel || '').slice(0, 60) || null });
+    return json({ error: msg }, 409);
+  };
+  if (c.cerrado) return await rechazar('cerrado', 'Este camión ya está cerrado. ' + MSG_VIEJO);
+  if (vencido(c)) return await rechazar('link viejo (POD de hace más de ' + DIAS_CIERRE + ' días)', MSG_VIEJO);
   if (!['salida', 'llegada', 'entrega', 'pod_extra', 'incidente'].includes(accion)) return json({ error: 'Acción no válida.' }, 400);
   // no repetir pasos ya registrados (Jorge 27-sep): doble clic o link viejo
   const RK = ['Borrador', 'Asignada', 'Confirmada', 'En tránsito', 'En destino', 'Entregada', 'POD recibido', 'Facturada', 'Cerrada'];
@@ -34,7 +44,7 @@ async function registrar(b: Record<string, unknown>) {
   if (accion === 'entrega' && (c.pod || rk >= 5)) return json({ error: 'La entrega ya estaba registrada con su POD.' }, 409);
   if (accion === 'pod_extra' && !(c.pod || rk >= 5)) return json({ error: 'Primero registra la entrega con la foto de la Carta Porte.' }, 409);
   // 6-oct: un incidente en un camión ya entregado casi siempre es el link de un viaje anterior → se rechaza con instrucciones
-  if (accion === 'incidente' && (c.pod || rk >= 5)) return json({ error: 'Este viaje ya se entregó con su POD. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva. Si el problema es de este viaje, llama a logística.' }, 409);
+  if (accion !== 'pod_extra' && (c.pod || rk >= 5)) return await rechazar('camión ya entregado', MSG_VIEJO);
   const fotos = (Array.isArray(b.fotos) ? b.fotos : []).slice(0, 10) as { base64?: string; tipo?: string }[];
   if (accion !== 'incidente' && !fotos.length) return json({ error: 'Toma la foto antes de enviar.' }, 400);
   const rutas: string[] = [];
@@ -91,6 +101,15 @@ async function privado(b: Record<string, unknown>) {
     const { error } = await db.from('pod_evento').update(upd).eq('id', id);
     return error ? json({ error: error.message }, 500) : json({ ok: true });
   }
+  if (b.op === 'rechazos') {   // intentos rechazados sin avisar (los lee NetSuite y avisa a logística)
+    const { data, error } = await db.from('pod_rechazo').select('*').is('avisado_at', null).order('id').limit(50);
+    return error ? json({ error: error.message }, 500) : json({ ok: true, rechazos: data || [] });
+  }
+  if (b.op === 'rechazos_avisados') {
+    const ids = (Array.isArray(b.ids) ? b.ids : []).map(Number).filter(Boolean); if (!ids.length) return json({ ok: true, n: 0 });
+    const { error } = await db.from('pod_rechazo').update({ avisado_at: new Date().toISOString() }).in('id', ids);
+    return error ? json({ error: error.message }, 500) : json({ ok: true, n: ids.length });
+  }
   return json({ error: 'op no válida' }, 400);
 }
 
@@ -101,6 +120,7 @@ Deno.serve(async (req) => {
       const t = new URL(req.url).searchParams.get('t');
       if (!tokenOk(t)) return json({ error: 'Código no válido.' }, 400);
       const { data } = await db.from('pod_camion').select(PUBLICO).eq('token', t).maybeSingle();
+      if (data && vencido(data)) data.cerrado = true;
       return data ? json({ ok: true, camion: data }) : json({ error: 'Código no válido o vencido.' }, 404);
     }
     const b = await req.json().catch(() => ({}));

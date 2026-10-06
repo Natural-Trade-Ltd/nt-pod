@@ -59,7 +59,7 @@ function inicio(msg){
    +'<div class="k">Carga</div><div class="v">'+esc(D.carga||'—')+'</div>'
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
-   +(D.cerrado?'<div class="msg errm">Este camión ya está cerrado.</div>':pasos());
+   +(D.cerrado?'<div class="msg errm" style="font-size:17px"><b>⚠ Este link ya está cerrado.</b><br>Es de un viaje que ya se entregó. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>':pasos());
   if(!D.cerrado&&(D.pod||RK.indexOf(D.status||'')>=5))$('#app').insertAdjacentHTML('afterbegin','<div class="msg errm" style="font-size:17px"><b>⚠ Este viaje ya se entregó.</b><br>Si vas en un viaje nuevo, este link <b>no es el tuyo</b>: abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>');
   if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a4','pod_extra'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
 }
