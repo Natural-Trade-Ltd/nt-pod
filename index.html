@@ -53,28 +53,34 @@ function reducir(f){return new Promise((ok,ko)=>{const img=new Image();const rd=
   rd.onerror=ko;rd.readAsDataURL(f);});}
 function inicio(msg){
   $('#hfolio').textContent=[D.folio,String(D.so||'').replace(/^(Orden de venta|Sales Order) #/,'')].filter(Boolean).join(' · ');
+  // 6-oct: traslado (puerto → patio, patio ↔ bodega): otro color y otro lenguaje; nunca «entregué»
+  document.querySelector('header').style.background=D.traslado?'#4F6D8A':'';
+  document.querySelector('header b').textContent=D.traslado?'Global Forest · TRASLADO':'Global Forest · Entrega';
   $('#app').innerHTML=(msg?'<div class="msg okm">'+esc(msg)+'</div>':'')
    +'<div class="card"><div class="k">Cliente</div><div class="v"><b>'+esc(D.cliente)+'</b></div>'
-   +'<div class="k">Entregar en</div><div class="v">'+esc(D.destino||'—')+'</div>'
+   +(D.traslado?'<div class="msg infom" style="background:#e6edf4;color:#2f4a63"><b>⇄ Traslado a patio o bodega.</b> No es la entrega al cliente.</div>':'')
+   +'<div class="k">'+(D.traslado?'Descargar en (patio o bodega)':'Entregar en')+'</div><div class="v">'+esc(D.destino||'—')+'</div>'
    +'<div class="k">Carga</div><div class="v">'+esc(D.carga||'—')+'</div>'
    +'<div class="k">Transportista · unidad</div><div class="v">'+esc(D.transportista||'—')+' · '+esc(D.unidad||'')+'</div>'
    +'<div class="k">Estatus</div><div>'+esc(D.status||'—')+(D.pod?' · ✔ POD recibido':'')+'</div></div>'
    +(D.cerrado?'<div class="msg errm" style="font-size:17px"><b>⚠ Este link ya está cerrado.</b><br>Es de un viaje que ya se entregó. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>':pasos());
-  if(!D.cerrado&&(D.pod||RK.indexOf(D.status||'')>=5))$('#app').insertAdjacentHTML('afterbegin','<div class="msg errm" style="font-size:17px"><b>⚠ Este viaje ya se entregó.</b><br>Si vas en un viaje nuevo, este link <b>no es el tuyo</b>: abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>');
+  if(!D.cerrado&&(D.pod||RK.indexOf(D.status||'')>=5))$('#app').insertAdjacentHTML('afterbegin','<div class="msg errm" style="font-size:17px"><b>⚠ Este viaje ya se '+(D.traslado?'descargó':'entregó')+'.</b><br>Si vas en un viaje nuevo, este link <b>no es el tuyo</b>: abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva.</div>');
   if(!D.cerrado){[['a0','salida'],['a1','llegada'],['a2','entrega'],['a4','pod_extra'],['a3','incidente']].forEach(([id,acc])=>{if($('#'+id))$('#'+id).onclick=()=>forma(acc);});}
 }
 // Cada botón desaparece cuando su paso ya quedó registrado (Jorge 27-sep); en su lugar sale una palomita
 const RK=['Borrador','Asignada','Confirmada','En tránsito','En destino','Entregada','POD recibido','Facturada','Cerrada'];
 function pasos(){const rk=RK.indexOf(D.status||'');const ok=t=>'<div class="msg okm">✔ '+t+'</div>';
   const salio=rk>=3,llego=rk>=4||!!D.llegada,entrego=!!D.pod||rk>=5;
+  const T=!!D.traslado;
   return (salio?ok('Salida registrada'):'<button class="big b0" id="a0">🚚 Ya cargué y salí</button>')
-   +(llego?ok('Llegada registrada'):'<button class="big b1" id="a1">📍 Llegué a la planta del cliente</button>')
-   +(entrego?ok('Entrega registrada con POD. ¡Gracias!')+'<button class="big b2" id="a4" style="background:#fff;color:var(--ok);border:2px solid var(--ok)">📎 Agregar fotos a la entrega<br><span style="font-size:13px;font-weight:400">faltó una firma, una hoja o salió borrosa</span></button>':'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>')
+   +(llego?ok(T?'Llegada al patio registrada':'Llegada registrada'):'<button class="big b1" id="a1">'+(T?'📍 Llegué al patio / bodega':'📍 Llegué a la planta del cliente')+'</button>')
+   +(entrego?ok(T?'Descarga registrada. ¡Gracias!':'Entrega registrada con POD. ¡Gracias!')+'<button class="big b2" id="a4" style="background:#fff;color:var(--ok);border:2px solid var(--ok)">📎 Agregar fotos a la entrega<br><span style="font-size:13px;font-weight:400">faltó una firma, una hoja o salió borrosa</span></button>':(T?'<button class="big b2" id="a2" style="background:#4F6D8A">📦 Descargué (foto del comprobante del patio)</button>':'<button class="big b2" id="a2">✔ Entregué (foto de la Carta Porte firmada)</button>'))
    +(entrego?'':'<button class="big b3" id="a3">⚠ Reportar un incidente</button>');
 }
 function forma(acc){gps();
-  const tit={pod_extra:'Fotos adicionales de la entrega',salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'}[acc];
-  const foto={pod_extra:'Fotos que faltaron (firma, sello, hoja adicional)',salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:'Fotos de la unidad en la planta del cliente',entrega:'Fotos de la Carta Porte con firma y sello del cliente y, si el patio te lo dio, del reporte de salida del patio',incidente:'Fotos del incidente'}[acc];
+  const tit=(D.traslado?{pod_extra:'Fotos adicionales de la descarga',salida:'Salida con la carga',llegada:'Llegada al patio / bodega',entrega:'Descarga en patio / bodega',incidente:'Reportar incidente'}
+    :{pod_extra:'Fotos adicionales de la entrega',salida:'Salida con la carga',llegada:'Llegada a planta',entrega:'Entrega total',incidente:'Reportar incidente'})[acc];
+  const foto={pod_extra:'Fotos que faltaron (firma, sello, hoja adicional)',salida:'Fotos de la unidad cargada (con lona / amarres)',llegada:D.traslado?'Fotos de la unidad en el patio o bodega':'Fotos de la unidad en la planta del cliente',entrega:D.traslado?'Fotos del comprobante de descarga del patio o bodega (o la Carta Porte sellada)':'Fotos de la Carta Porte con firma y sello del cliente y, si el patio te lo dio, del reporte de salida del patio',incidente:'Fotos del incidente'}[acc];
   $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px">'+tit+'</h2><div class="muted" id="gps">📍 Obteniendo ubicación…</div>'
    +(acc==='pod_extra'?'<label>¿Qué se agrega?</label><select id="tipo">'+['Faltaba una firma o sello','Hoja adicional de la Carta Porte','La foto anterior salió borrosa','Otro'].map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')
    +(acc==='incidente'?'<label>¿Qué pasó?</label><select id="tipo">'+TIPOS.map(t=>'<option>'+esc(t)+'</option>').join('')+'</select>':'')

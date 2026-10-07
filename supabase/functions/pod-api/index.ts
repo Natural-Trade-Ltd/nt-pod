@@ -14,7 +14,7 @@ const SECRET = Deno.env.get('POD_SECRET') || '';
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type, x-pod-secret', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
 const tokenOk = (t: unknown) => typeof t === 'string' && t.length >= 24 && /^[A-Za-z0-9-]+$/.test(t);
-const PUBLICO = 'folio, so, cliente, destino, origen, transportista, unidad, carga, status, pod, llegada, cerrado, pod_at';
+const PUBLICO = 'folio, so, cliente, destino, origen, transportista, unidad, carga, status, pod, llegada, cerrado, pod_at, traslado';
 // 6-oct (Jorge): el link de un camión se cierra 3 días después de su POD (los choferes guardan links de viajes anteriores)
 const DIAS_CIERRE = 3;
 const vencido = (c: { pod?: boolean; pod_at?: string | null }) => !!c.pod && !!c.pod_at && Date.now() - Date.parse(c.pod_at) > DIAS_CIERRE * 86400000;
@@ -25,7 +25,7 @@ function bytesToB64(u: Uint8Array) { let s = ''; const CH = 0x8000; for (let i =
 
 async function registrar(b: Record<string, unknown>) {
   if (!tokenOk(b.t)) return json({ error: 'Código no válido. Escanea de nuevo el QR de la Carta Porte.' }, 400);
-  const { data: c } = await db.from('pod_camion').select('token, entrega_id, folio, status, cerrado, pod, llegada, pod_at').eq('token', b.t).maybeSingle();
+  const { data: c } = await db.from('pod_camion').select('token, entrega_id, folio, status, cerrado, pod, llegada, pod_at, traslado').eq('token', b.t).maybeSingle();
   if (!c) return json({ error: 'Código no válido o vencido.' }, 404);
   const accion = String(b.accion || '');
   const rechazar = async (motivo: string, msg: string) => {
@@ -66,7 +66,7 @@ async function registrar(b: Record<string, unknown>) {
   if (accion === 'salida') await db.from('pod_camion').update({ status: 'En tránsito', updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'llegada') await db.from('pod_camion').update({ status: 'En destino', llegada: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('token', c.token);
   if (accion === 'entrega') await db.from('pod_camion').update({ status: 'POD recibido', pod: true, updated_at: new Date().toISOString() }).eq('token', c.token);
-  return json({ ok: true, msg: accion === 'pod_extra' ? 'Fotos agregadas a la entrega. ¡Gracias!' : accion === 'salida' ? 'Salida registrada. ¡Buen viaje!' : accion === 'llegada' ? 'Llegada registrada. ¡Gracias!' : accion === 'entrega' ? 'Entrega registrada con POD. ¡Gracias!' : 'Incidente registrado. Logística será avisada.' });
+  return json({ ok: true, msg: accion === 'pod_extra' ? 'Fotos agregadas a la entrega. ¡Gracias!' : accion === 'salida' ? 'Salida registrada. ¡Buen viaje!' : accion === 'llegada' ? (c.traslado ? 'Llegada al patio registrada. ¡Gracias!' : 'Llegada registrada. ¡Gracias!') : accion === 'entrega' ? (c.traslado ? 'Descarga registrada. ¡Gracias!' : 'Entrega registrada con POD. ¡Gracias!') : 'Incidente registrado. Logística será avisada.' });
 }
 
 async function privado(b: Record<string, unknown>) {
@@ -74,7 +74,7 @@ async function privado(b: Record<string, unknown>) {
     const filas = (Array.isArray(b.camiones) ? b.camiones : []).filter((x: any) => tokenOk(x?.token) && x?.entrega_id)
       .map((x: any) => ({ token: x.token, entrega_id: Number(x.entrega_id), folio: x.folio ?? null, so: x.so ?? null, cliente: x.cliente ?? null, destino: x.destino ?? null,
         origen: x.origen ?? null, transportista: x.transportista ?? null, unidad: x.unidad ?? null, carga: x.carga ?? null, status: x.status ?? null,
-        pod: !!x.pod, cerrado: !!x.cerrado, updated_at: new Date().toISOString() }));
+        pod: !!x.pod, cerrado: !!x.cerrado, traslado: !!x.traslado, updated_at: new Date().toISOString() }));
     if (!filas.length) return json({ ok: true, n: 0 });
     const { error } = await db.from('pod_camion').upsert(filas, { onConflict: 'token' });
     return error ? json({ error: error.message }, 500) : json({ ok: true, n: filas.length });
