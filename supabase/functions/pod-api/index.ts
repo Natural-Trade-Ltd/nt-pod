@@ -25,7 +25,15 @@ const RK = ['Borrador', 'Asignada', 'Confirmada', 'En tránsito', 'En destino', 
 /** Entregas del furgón: la 1 es el camión del QR, luego las parciales. */
 async function parcialesDe(c: Record<string, any>) {
   const { data } = await db.from('pod_parcial').select('n, placas, chofer, status, llegada, pod').eq('token', c.token).order('n');
-  return [{ n: 1, placas: null, chofer: null, status: c.status, llegada: c.llegada, pod: !!c.pod }, ...(data || [])];
+  return [{ n: 1, placas: null, chofer: null, status: await estado1(c), llegada: c.llegada, pod: !!c.pod }, ...(data || [])];
+}
+/** 3-nov (caso LINSA GF-64396): el camión del QR suele seguir «Borrador» en NetSuite (sin transportista) y la sincronización
+ *  regresa ese estatus; el avance de la entrega 1 se toma también de sus propios eventos, si no todos los camiones caían en la 1. */
+async function estado1(c: Record<string, any>) {
+  const { data } = await db.from('pod_evento').select('accion').eq('token', c.token).or('parcial_n.eq.1,parcial_n.is.null').in('accion', ['salida', 'llegada', 'entrega']);
+  const ev = (data || []).map((x: any) => x.accion);
+  const porEv = ev.includes('entrega') ? 'POD recibido' : ev.includes('llegada') ? 'En destino' : ev.includes('salida') ? 'En tránsito' : 'Borrador';
+  return RK.indexOf(String(c.status || '')) >= RK.indexOf(porEv) ? c.status : porEv;
 }
 const MSG_VIEJO = 'Este link es de un viaje que ya se entregó. Si vas en un viaje nuevo, abre el link nuevo que te mandó logística o escanea el QR de la Carta Porte nueva. Si el problema es de este viaje, llama a logística.';
 
@@ -43,7 +51,7 @@ async function registrar(b: Record<string, unknown>) {
     if (b.parcial === 'nuevo') {
       if (accion !== 'salida') return json({ error: 'Para abrir una entrega nueva primero registra tu salida con la carga.' }, 400);
       if (c0.multi_total) return json({ error: `Este furgón ya se entregó completo en ${c0.multi_total} entregas. Si llevas material de este furgón, llama a logística.` }, 409);
-      if (RK.indexOf(String(c0.status || '')) < 3) pn = 1;   // nadie ha salido: este camión es la entrega 1
+      if (RK.indexOf(String(await estado1(c0))) < 3) pn = 1;   // nadie ha salido: este camión es la entrega 1
       else {
         const { data: ult } = await db.from('pod_parcial').select('n').eq('token', c0.token).order('n', { ascending: false }).limit(1).maybeSingle();
         pn = Math.max(2, (ult?.n || 1) + 1); nuevaParcial = true;
@@ -57,6 +65,7 @@ async function registrar(b: Record<string, unknown>) {
         c = { ...c0, status: p.status, llegada: p.llegada, pod: p.pod, pod_at: p.pod_at };
       }
     }
+    if (pn === 1) c = { ...c0, status: await estado1(c0) };   // así tampoco se repite la salida / llegada / POD de la entrega 1
   }
   const rechazar = async (motivo: string, msg: string) => {
     await db.from('pod_rechazo').insert({ token: c.token, entrega_id: c.entrega_id, folio: c.folio, accion, motivo, parcial_n: pn, tipo: String(b.tipo || '').slice(0, 80) || null,
