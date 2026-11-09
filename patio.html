@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Patio · Global Forest</title>
+<style>
+/* Dueto Tierra (sistema de diseño NT/GF) */
+:root{--bg:#F2EDE3;--card:#FBF8F1;--line:#E0D8C8;--ink:#3A3129;--sub:#71655A;--faint:#9C8F80;--acc:#587F6B;--accInk:#F6FBF7;--acc2:#8A6F5B;
+  --riesgo:#AE4E2B;--alerta:#9A6A12;--info:#3D6F9E;--okBg:#E4EDE7;--alertaBg:#F5EBD6;--riesgoBg:#F6E3DA;--infoBg:#E4EDF6}
+@media (prefers-color-scheme:dark){:root{--bg:#1A1713;--card:#241F1A;--line:#3A322A;--ink:#F0EAE0;--sub:#BCAFA0;--faint:#8D8072;--acc:#8FB89F;--accInk:#17241C;--acc2:#C9A87F;
+  --riesgo:#E0785A;--alerta:#E0B463;--info:#7FA8D8;--okBg:#1E2E24;--alertaBg:#33291A;--riesgoBg:#33211B;--infoBg:#1C2836}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 16px 10px;max-width:600px;margin:auto}
+header .eb{font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--sub);text-transform:uppercase}
+header h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:400;font-size:28px;margin:4px 0 0;letter-spacing:-.01em}
+header .rg{width:60px;height:3px;background:var(--acc2);margin:10px 0 4px;border-radius:2px}
+main{padding:0 16px 30px;max-width:600px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.k{color:var(--faint);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;margin-top:6px}
+.v{margin-bottom:6px}
+b{font-weight:600}
+.big{display:block;width:100%;border:0;border-radius:12px;padding:16px;margin:10px 0;font:inherit;font-size:17px;font-weight:600;color:var(--accInk);background:var(--acc);cursor:pointer;text-align:center}
+.big.sec{background:transparent;color:var(--acc);border:1.5px solid var(--acc)}
+.big[disabled]{opacity:.6}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600}
+.ok{background:var(--okBg);color:var(--acc)}.al{background:var(--alertaBg);color:var(--alerta)}.ri{background:var(--riesgoBg);color:var(--riesgo)}.in{background:var(--infoBg);color:var(--info)}
+label{display:block;margin:12px 0 4px;font-weight:600;font-size:14px}
+input,select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink)}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.thumbs div{position:relative;width:31%}.thumbs img{width:100%;border-radius:10px;display:block}
+.thumbs button{position:absolute;top:2px;right:2px;border:0;border-radius:50%;width:26px;height:26px;background:rgba(0,0,0,.6);color:#fff;font-size:15px}
+.fbtn{display:inline-block;margin:6px 6px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-weight:600;cursor:pointer}
+.fbtn input{display:none}
+.msg{padding:12px 14px;border-radius:12px;margin:10px 0}
+.okm{background:var(--okBg);color:var(--acc)}.errm{background:var(--riesgoBg);color:var(--riesgo)}.infom{background:var(--infoBg);color:var(--info)}.alm{background:var(--alertaBg);color:var(--alerta)}
+.muted{color:var(--sub);font-size:14px}
+.pre{white-space:pre-wrap;font-size:14px;color:var(--sub)}
+.venta{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.k+.venta{border-top:0;margin-top:4px;padding-top:0}
+.volver{background:none;border:0;color:var(--acc);font:inherit;padding:8px 0;cursor:pointer}
+details summary{cursor:pointer;font-weight:600;color:var(--acc)}
+.seg{display:flex;gap:8px}.seg button{flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.seg button.on{border-color:var(--acc);background:var(--okBg);color:var(--acc)}
+</style>
+</head>
+<body>
+<header><div class="eb">Global Forest · Portal del patio</div><h1 id="h1">Furgón</h1><div class="rg"></div><div class="muted" id="hsub">&nbsp;</div></header>
+<main id="app"><div class="msg infom">Cargando…</div></main>
+<script>
+// Portal del PATIO (8-nov-2026): una liga / QR por furgón en el correo de «Instrucciones patio». Aparte del QR del chofer.
+// Datos en Supabase (patio-api); NetSuite los aplica cada 15 min (Fecha patio, fotos en la ICPO, avisos a logística).
+const API='https://cytopyytymxjwvfhosvg.supabase.co/functions/v1/patio-api';
+const T=new URLSearchParams(location.search).get('t')||'';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const fc=f=>{const m=String(f||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?(+m[3])+'-'+MES[+m[2]-1]:'';};
+const ymdLocal=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const local=iso=>{const d=new Date(iso);return isNaN(d)?'':fc(ymdLocal(d))+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+const ahoraInput=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);};
+let F=null;
+async function cargar(){const r=await fetch(API+'?t='+encodeURIComponent(T));const j=await r.json();if(j.error)throw new Error(j.error);F=j.furgon;}
+function reducir(f){return new Promise((ok,ko)=>{const img=new Image();const rd=new FileReader();
+  rd.onload=()=>{img.onload=()=>{const m=1600;let w=img.width,h=img.height;if(Math.max(w,h)>m){const k=m/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k);}
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(img,0,0,w,h);
+    ok({base64:cv.toDataURL('image/jpeg',0.8).split(',')[1],url:cv.toDataURL('image/jpeg',0.4)});};img.onerror=ko;img.src=rd.result;};
+  rd.onerror=ko;rd.readAsDataURL(f);});}
+// días libres naturales: el día de llegada cuenta como el día 1 (Ericka 8-nov)
+function ultimoLibre(){if(!F.llegada||!F.dias_libres)return '';const d=new Date(F.llegada);d.setDate(d.getDate()+(+F.dias_libres)-1);return ymdLocal(d);}
+function inicio(msg){
+  const fi=F.ficha||{},V=fi.ventas||[],C=fi.camiones||[],S=F.salidas||[];
+  $('#h1').textContent='Furgón '+(F.carro||'');
+  $('#hsub').textContent=[F.patio,'orden '+(F.icpo||'')].filter(Boolean).join(' · ');
+  const llego=!!F.llegada,fotos=+F.fotos_n||0,ul=ultimoLibre();
+  const estado=!llego?'<span class="chip in">En camino'+(F.eta?' · ETA '+esc(fc(F.eta)):'')+'</span>'
+    :'<span class="chip ok">Llegó '+esc(local(F.llegada))+'</span> '+(fotos?'<span class="chip ok">'+fotos+' foto(s)</span>':'<span class="chip al">Faltan fotos</span>');
+  const salida=v=>{const s=S.filter(z=>+z.so_id===+v.so_id);return s.length?'<div class="msg okm">✔ '+s.map(z=>(z.tipo==='recogio'?'El cliente recogió':'Entregado')+' · '+esc(local(z.at))).join('<br>✔ ')+'</div>':'';};
+  $('#app').innerHTML=(msg?'<div class="msg okm">'+esc(msg)+'</div>':'')
+   +(F.cerrado?'<div class="msg errm"><b>Este furgón ya se cerró.</b> Si hay algo pendiente, escríbanos por correo.</div>':'')
+   +'<div class="card"><div>'+estado+'</div>'
+   +(F.dias_libres?'<div class="k">Días libres de almacenaje</div><div class="v">'+(+F.dias_libres)+' naturales (el día de llegada cuenta)'+(ul?' · último día libre <b>'+esc(fc(ul))+'</b>':'')+'</div>':'')
+   +'</div>'
+   +(F.cerrado?'':(!llego?'<button class="big" id="bLl">✔ Llegó el furgón</button><p class="muted" style="margin-top:-4px">Pueden confirmar la llegada ya y mandar las fotos después.</p>'
+     :'')+'<button class="big '+(llego&&!fotos?'':'sec')+'" id="bFo">📷 '+(fotos?'Agregar más fotos del furgón':'Mandar fotos del furgón')+'</button>')
+   +(V.length?'<div class="card"><div class="k">Ventas en este furgón</div>'+V.map(v=>'<div class="venta"><b>'+esc(v.cliente)+'</b> <span class="muted">'+esc(v.so)+'</span>'
+       +(v.no_liberar?'<div class="msg errm"><b>NO LIBERAR</b> hasta nuevo aviso de Global Forest.</div>':'')
+       +(v.instruccion?'<details><summary>Qué hacer</summary><div class="pre">'+esc(v.instruccion)+'</div></details>':'')+salida(v)
+       +(!F.cerrado&&!v.no_liberar?'<button class="big sec" data-so="'+v.so_id+'">🚚 Salió material de esta venta</button>':'')+'</div>').join('')+'</div>':'')
+   +(C.length?'<div class="card"><div class="k">Camiones asignados</div>'+C.map(c=>'<div class="v"><b>'+esc(c.folio||'(sin folio)')+'</b> · '+esc(c.so)+'<br><span class="muted">'
+       +esc([c.recoge?'Recoge el cliente':c.transportista,c.unidad,c.f_prog?'recolección '+fc(c.f_prog):'',c.destino].filter(Boolean).join(' · '))+'</span></div>').join('')+'</div>':'')
+   +(fi.instrucciones?'<div class="card"><details><summary>Instrucciones completas</summary><div class="pre">'+esc(fi.instrucciones)+'</div></details></div>':'')
+   +'<p class="muted">Este código es solo para el patio; no es el QR de la Carta Porte del chofer.</p>';
+  if($('#bLl'))$('#bLl').onclick=()=>forma('llegada');
+  if($('#bFo'))$('#bFo').onclick=()=>forma('fotos');
+  $('#app').querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>forma('salida',+b.dataset.so));
+}
+function forma(acc,so){
+  const v=((F.ficha||{}).ventas||[]).find(z=>+z.so_id===+so);
+  const tit={llegada:'Llegada del furgón',fotos:'Fotos del furgón',salida:'Salida · '+(v?v.cliente:'')}[acc];
+  const fotoTxt={llegada:'Fotos del furgón (opcional ahora; pueden mandarlas después)',fotos:'Fotos del furgón (hasta 15)',salida:'Foto del reporte de salida firmado o de la carga (obligatoria)'}[acc];
+  $('#app').innerHTML='<button class="volver" id="bk">← Volver</button><div class="card"><h2 style="margin:0 0 6px;font-weight:500;font-family:Iowan Old Style,Palatino Linotype,Georgia,serif">'+esc(tit)+'</h2>'
+   +(acc==='salida'?'<label>¿Qué pasó?</label><div class="seg"><button type="button" data-t="entregamos" class="on">Ya entregamos</button><button type="button" data-t="recogio">El cliente recogió</button></div>':'')
+   +(acc!=='fotos'?'<label>'+(acc==='llegada'?'¿Cuándo llegó?':'¿Cuándo salió?')+'</label><input type="datetime-local" id="fe" value="'+ahoraInput()+'" max="'+ahoraInput()+'">':'')
+   +'<label>'+fotoTxt+'</label><label class="fbtn">📷 Tomar foto<input type="file" id="fc" accept="image/*" capture="environment"></label><label class="fbtn">🖼 Galería<input type="file" id="fg" accept="image/*" multiple></label><div class="thumbs" id="th"></div>'
+   +'<label>Su nombre</label><input id="nom" autocomplete="name">'
+   +'<label>Comentarios (opcional)</label><textarea id="nt" rows="3" placeholder="'+(acc==='salida'?'Ej. placas, operador, lo que salió':'Ej. llegó con la lona rota')+'"></textarea>'
+   +'<div id="m"></div><button class="big" id="go">Enviar</button></div>';
+  let fotos=[],tipo='entregamos';
+  $('#bk').onclick=()=>inicio();
+  $('#app').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tipo=b.dataset.t;$('#app').querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b));});
+  const pintar=()=>{$('#th').innerHTML=fotos.map((f,i)=>'<div><img src="'+f.url+'"><button data-i="'+i+'" aria-label="Quitar">×</button></div>').join('');
+    $('#th').querySelectorAll('button').forEach(b=>b.onclick=()=>{fotos.splice(+b.dataset.i,1);pintar();});};
+  const agregar=async e=>{for(const f of [...e.target.files]){if(fotos.length>=15)break;try{fotos.push(await reducir(f));}catch(er){}}e.target.value='';pintar();};
+  $('#fc').onchange=agregar;$('#fg').onchange=agregar;
+  $('#go').onclick=async()=>{const m=$('#m');
+    if(acc!=='llegada'&&!fotos.length){m.innerHTML='<div class="msg errm">Agreguen al menos una foto.</div>';return;}
+    const fe=$('#fe')?$('#fe').value:'';if(acc!=='fotos'&&!fe){m.innerHTML='<div class="msg errm">Indiquen la fecha y hora.</div>';return;}
+    $('#go').disabled=true;m.innerHTML='<div class="msg infom">Enviando…</div>';
+    try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,accion:acc==='salida'?tipo:acc,
+        fecha:fe?new Date(fe).toISOString():undefined,so_id:so||undefined,fotos:fotos.map(f=>({base64:f.base64})),nombre:$('#nom').value,nota:$('#nt').value,hora_cel:new Date().toLocaleString('es-MX')})});
+      const j=await r.json();if(j.error)throw new Error(j.error);
+      try{await cargar();}catch(e){}inicio(j.msg);}
+    catch(er){$('#go').disabled=false;m.innerHTML='<div class="msg errm">'+esc(er.message||'No se pudo enviar. Revisen la señal e intenten de nuevo.')+'</div>';}};
+}
+(async()=>{
+  if(!T){$('#app').innerHTML='<div class="msg errm">Falta el código. Abran la liga del correo de instrucciones o escaneen el QR del furgón.</div>';return;}
+  try{await cargar();inicio();}
+  catch(e){$('#app').innerHTML='<div class="msg errm">'+esc(e.message||'No se pudo abrir el furgón.')+'</div><p class="muted">Abran de nuevo la liga del correo o escríbanos.</p>';}
+})();
+</script>
+</body>
+</html>
