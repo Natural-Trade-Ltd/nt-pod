@@ -80,6 +80,8 @@ function inicio(msg){
   const salida=v=>{const s=S.filter(z=>+z.so_id===+v.so_id);return s.length?'<div class="msg okm">✔ '+s.map(z=>(z.tipo==='recogio'?'El cliente recogió':'Entregado')+' · '+esc(local(z.at))).join('<br>✔ ')+'</div>':'';};
   $('#app').innerHTML=(msg?'<div class="msg okm">'+esc(msg)+'</div>':'')
    +(F.cerrado?'<div class="msg errm"><b>Este furgón ya se cerró.</b> Si hay algo pendiente, escríbanos por correo.</div>':'')
+   // 23-nov (Jorge; caso GF-64479): el mismo aviso que en el correo de instrucciones, cuando Global Forest manda camiones.
+   +(C.some(c=>!c.recoge)&&!F.cerrado?'<div class="msg infom"><b>📱 QR de la Carta Porte:</b> cada chofer registra su camión (salida, llegada y POD) con el QR de su Carta Porte desde su propio celular, en el momento y con la ubicación activada. Si el furgón sale en varios camiones, cada chofer toca «Soy un camión nuevo» en su celular. Por favor no lo registren por ellos.</div>':'')
    +'<div class="card"><div>'+estado+'</div>'
    +(F.dias_libres?'<div class="k">Días libres de almacenaje</div><div class="v">'+(+F.dias_libres)+' naturales (el día de llegada cuenta)'+(ul?' · último día libre <b>'+esc(fc(ul))+'</b>':'')+'</div>':'')
    +'</div>'
